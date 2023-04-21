@@ -326,15 +326,25 @@ class HuskyLensLibrary:
         self.writeToHuskyLens(cmd)
         return self.processReturnData()
 
+    # Before: returns error if there are 0 items
+    # Now: returns an empty array
     def blocks(self):
         cmd = self.cmdToBytes(commandHeaderAndAddress+"002131")
         self.writeToHuskyLens(cmd)
-        return self.processReturnData()[0]
+        if(self.processReturnData() and len(self.processReturnData()) > 0):
+            return self.processReturnData()[0]
+        else:
+            return self.processReturnData()
 
+    # Before: returns error if there are 0 items
+    # Now: returns an empty array
     def arrows(self):
         cmd = self.cmdToBytes(commandHeaderAndAddress+"002232")
         self.writeToHuskyLens(cmd)
-        return self.processReturnData()[0]
+        if(self.processReturnData() and len(self.processReturnData()) > 0):
+            return self.processReturnData()[0]
+        else:
+            return self.processReturnData()
 
     def learned(self):
         cmd = self.cmdToBytes(commandHeaderAndAddress+"002333")
