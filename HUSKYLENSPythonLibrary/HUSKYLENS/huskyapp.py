@@ -5,14 +5,15 @@ from playsound import playsound
 
 import threading, time
 
-import json
+import os.path
 
 huskylens = HuskyLensLibrary("SERIAL", "/dev/ttyUSB0")
 
-_global_arrows = []
-_global_blocks = []
 _face_current_id = 1
 _in_memory_map_id_to_name = {}
+
+_line_id_to_name = {1:"crosswalk", 2:"sidewalk", 3:"floor"}
+
 _current_mode = "ALGORITHM_FACE_RECOGNITION"
 
 def print_blocks(block_array):
@@ -41,16 +42,35 @@ def switch_to_object_classification():
 	_current_mode = "ALGORITHM_OBJECT_CLASSIFICATION"
 
 def switch_to_default():
-	switch_to_face_recognition()
-	
-# learn objects
+	switch_to_line_tracking()
 
-def learn(name, current_id):
-	try:
-		result = huskylens.learn(current_id)
-		print(result)
-	except Exception as e:
-		print(e)
+# helper test methods
+
+def knock():
+	test = gtts.gTTS(text="Knock confirmed", lang='en')
+	test.save("knock.wav")
+	print(huskylens.knock())
+	playsound("knock.wav")
+	time.sleep(5)
+	t = threading.Thread(target=knock)
+	t.start()
+	
+def framenumber():
+	print("frames processed: " + str(huskylens.frameNumber()))
+	time.sleep(5)
+	t = threading.Thread(target=framenumber)
+	t.start()
+	
+def count():
+	print("count: " + str(huskylens.count()))
+	time.sleep(5)
+	t = threading.Thread(target=count)
+	t.start()
+	
+def lens_display(text, X, Y):
+	huskylens.customText(text, X, Y)
+	time.sleep(10)
+	huskylens.clearText()
 		
 # learn faces
 def learn_faces():
@@ -62,7 +82,7 @@ def learn_faces():
 		result = huskylens.learn(_face_current_id)
 		_in_memory_map_id_to_name[_face_current_id] = name
 		test = gtts.gTTS(text="This person is now recognized as" + str(name), lang='en')
-		filename = str(_face_current_id)+".wav"
+		filename =  "face_" + str(_face_current_id)+".wav"
 		test.save(filename)
 		print(result)
 	except Exception as e:
@@ -70,7 +90,7 @@ def learn_faces():
 	
 	_face_current_id+=1
 	print(_in_memory_map_id_to_name)
-	time.sleep(10)
+	time.sleep(15)
 	t = threading.Thread(target=learn_faces)
 	t.start()
 	
@@ -79,19 +99,17 @@ def learn_faces():
 def detect_faces():
 	print(huskylens.count())
 	if(_current_mode == "ALGORITHM_FACE_RECOGNITION" and len(_in_memory_map_id_to_name)>0):
-		data = huskylens.blocks()
-
 		learned_blocks = huskylens.requestAll()
 		for i in learned_blocks:
 			ID = i.ID
-			filename = str(ID)+".wav"
+			filename = "face_" + str(ID)+".wav"
 			try:
 				playsound(filename)
-				print("Learned knock for " + str(ID))
+				print("Recognized face " + str(ID))
 			except Exception:
 				print("Could not find face corresponding to " + str(ID))
 
-	time.sleep(0.5)
+	time.sleep(0.1)
 	t = threading.Thread(target=detect_faces)
 	t.start()
 
@@ -111,58 +129,53 @@ def decodeHuskyLens(obj):
 
 		# Get the recently read block from the HuskyLens to detect the object ID.
 		self.decodeHuskyLens(self.husky_lens.blocks())
-
-def knock():
-	print(huskylens.knock())
-	playsound("knock.wav")
-	time.sleep(5)
-	t = threading.Thread(target=knock)
+		
+# learn lines
+def learn_lines(curr_id):
+	print("Learning")
+	try:
+		result = huskylens.learn(curr_id)
+		filename = "line_" + str(curr_id)+".wav"
+		if(not os.path.isfile(filename)):
+			test = gtts.gTTS(text="Line tracked as " + str(_line_id_to_name[curr_id]), lang='en')
+			test.save(filename)
+			print("Saved file " + filename)
+		print(result)
+	except Exception as e:
+		print(e)
+	time.sleep(0.01)
+	t = threading.Thread(target=learn_lines, args=(1,))
 	t.start()
 	
-def framenumber():
-	print("frames processed: " + str(huskylens.frameNumber()))
-	time.sleep(5)
-	t = threading.Thread(target=framenumber)
-	t.start()
-	
-def count():
-	print("count: " + str(huskylens.count()))
-	time.sleep(5)
-	t = threading.Thread(target=count)
-	t.start()
+# constantly running method to track if any learned lines are present
+def line_tracking():
+	print("Tracking")
+	if(_current_mode == "ALGORITHM_LINE_TRACKING" and len(_line_id_to_name) > 0):
+		learned_arrows = huskylens.requestAll()
+		for i in learned_arrows:
+			ID = i.ID
+			filename = "line_" + str(ID)+".wav"
+			try:
+				playsound(filename)
+				print("Tracking line " + _line_id_to_name[ID])
+			except Exception:
+				print("Could not find line type corresponding to " + str(ID))
 
-# -- BUGGY- always empty. What is proper input/output?
-def process_blocks():
-	global_blocks = huskylens.blocks()
-	print("blocks:\n" + str(global_blocks))
-
-# -- BUGGY- always empty. What is proper input/output?
-def process_arrows():
-	global_arrows = huskylens.arrows()
-	print("arrows:\n" + str(global_arrows))
-	time.sleep(5)
-	t = threading.Thread(target=process_arrows)
+	time.sleep(0.1)
+	t = threading.Thread(target=line_tracking)
 	t.start()
-	
-def lens_display(text, X, Y):
-	huskylens.customText(text, X, Y)
-	time.sleep(10)
-	huskylens.clearText()
 
 # Entry point to the program
 def main():
 	switch_to_face_recognition()
 	time.sleep(0.5)
-
-	test = gtts.gTTS(text="Knock confirmed", lang='en')
-	test.save("knock.wav")
 		
 	print(huskylens.learnedObjCount())
-	
 	print(huskylens.forget())
 	time.sleep(0.5)
-	
 	print(huskylens.learnedObjCount())
+	
+	switch_to_default()
 	
 # Threading for test methods
 	threads = []
@@ -179,27 +192,29 @@ def main():
 	# ~ threads.append(count_thread)
 	# ~ count_thread.start()
 	
-	# ~ blocks_thread = threading.Thread(target=process_blocks)
-	# ~ threads.append(blocks_thread)
-	# ~ blocks_thread.start()
-	
-	# ~ arrows_thread = threading.Thread(target=process_arrows)
-	# ~ threads.append(arrows_thread)
-	# ~ arrows_thread.start()
-	
 	# ~ lens_display_thread = threading.Thread(target=lens_display, args=("Welcome to S.E.E.", 85, 30, ))
 	# ~ threads.append(lens_display_thread)
 	# ~ lens_display_thread.start()
 	
 # ~ # Face recognition
 	
-	learn_faces_thread = threading.Thread(target=learn_faces)
-	threads.append(learn_faces_thread)
-	learn_faces_thread.start()
+	# ~ learn_faces_thread = threading.Thread(target=learn_faces)
+	# ~ threads.append(learn_faces_thread)
+	# ~ learn_faces_thread.start()
 	
-	detect_faces_thread = threading.Thread(target=detect_faces)
-	threads.append(detect_faces_thread)
-	detect_faces_thread.start()
+	# ~ detect_faces_thread = threading.Thread(target=detect_faces)
+	# ~ threads.append(detect_faces_thread)
+	# ~ detect_faces_thread.start()
+	
+# Line Tracking
+
+	# ~ learn_lines_thread = threading.Thread(target=learn_lines, args=(1,))
+	# ~ threads.append(learn_lines_thread)
+	# ~ learn_lines_thread.start()
+	
+	# ~ line_tracking_thread = threading.Thread(target=line_tracking)
+	# ~ threads.append(line_tracking_thread)
+	# ~ line_tracking_thread.start()
 	
 if __name__ == "__main__":
 	main()
