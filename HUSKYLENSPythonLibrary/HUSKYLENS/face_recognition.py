@@ -18,14 +18,6 @@ _line_id_to_name = {1:"crosswalk", 2:"sidewalk", 3:"floor"}
 
 _current_mode = "ALGORITHM_FACE_RECOGNITION"
 
-def print_blocks(block_array):
-	for obj in block_array:
-		tostr = ""
-		tostr += str(obj.x) + "\n"
-		tostr += str(obj.y) + "\n"
-		tostr += str(obj.ID)
-		print(tostr)
-
 # Control algorithms
 def switch_to_face_recognition():
 	huskylens.algorthim("ALGORITHM_FACE_RECOGNITION")
@@ -78,8 +70,8 @@ def lens_display(text, X, Y):
 def learn_faces():
 	global _face_current_id
 	
-	# ~ person = input("Type the name and press enter to start learning\n")
-	name = "person"+str(_face_current_id)
+	name = input("Type the name and press enter to start learning\n")
+	# ~ name = "person"+str(_face_current_id)
 	try:
 		result = huskylens.learn(_face_current_id)
 		_in_memory_map_id_to_name[_face_current_id] = name
@@ -92,14 +84,11 @@ def learn_faces():
 	
 	_face_current_id+=1
 	print(_in_memory_map_id_to_name)
-	time.sleep(10)
-	t = threading.Thread(target=learn_faces)
-	t.start()
 	
 # constantly running method to see if any learned faces are present, if while analyzing for 3 seconds detect the same face for
 #iterations, detections, prevID
 def detect_faces():
-	if(_current_mode == "ALGORITHM_FACE_RECOGNITION" and len(_in_memory_map_id_to_name)>0):
+	if(_current_mode == "ALGORITHM_FACE_RECOGNITION"):
 		try:
 			learned_blocks = huskylens.requestAll()
 			for i in learned_blocks:
@@ -113,6 +102,8 @@ def detect_faces():
 						print("Could not find face corresponding to " + str(ID))
 				else:
 					print("Unlearned face detected")
+					response = learn_faces()
+					print(response)
 		except Exception:
 			print("Failed in request all")
 	time.sleep(0.1)
@@ -208,10 +199,6 @@ def main():
 	# ~ lens_display_thread.start()
 	
 # Face recognition
-	
-	learn_faces_thread = threading.Thread(target=learn_faces)
-	threads.append(learn_faces_thread)
-	learn_faces_thread.start()
 	
 	detect_faces_thread = threading.Thread(target=detect_faces)
 	threads.append(detect_faces_thread)
