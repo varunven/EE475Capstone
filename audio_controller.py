@@ -5,6 +5,8 @@ from playsound import playsound
 import os
 import time
 
+# The AudioController class handles everything audio. It allows for text to speech by converting voicelines
+# to mp3 files. It allows for converting and playing text, and/or saving the file as mp3.
 class AudioController:
     def __init__(self):
         # ~ self.audio_lock = threading.Lock()
@@ -20,9 +22,7 @@ class AudioController:
         # try playing the file & remove it after playing
         # playsound is blocking
         try:
-          # ~ self.audio_lock.acquire()
           playsound(file_name)
-          # ~ self.audio_lock.release()
           os.remove(file_name)
           time.sleep(0.2)
         except Exception as e:
@@ -31,13 +31,11 @@ class AudioController:
     # given a file name, attempts to play it. If file DNE or is corrupted, throws an error
     def play_from_file(self, file_name):
         try:
-            #self.audio_lock.acquire()
             playsound(file_name)
-            #self.audio_lock.release()
         except Exception as e:
             raise Exception("Could not play audio file")
         
-        
+    # Given a voiceline and file_name, create an mp3 of the voiceline and save it as file_name
     def create_audio_file(self, voiceline, file_name):
         audio_blob = gtts.gTTS(text=voiceline, lang='en')
         fn = file_name + ".wav"

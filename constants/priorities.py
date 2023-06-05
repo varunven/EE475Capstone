@@ -1,3 +1,5 @@
+# The starting priority list that holds the recognition priority of all objects in the COCO dataset
+
 coco_objects_priority = {
     "person": 10,
     "bicycle": 9,

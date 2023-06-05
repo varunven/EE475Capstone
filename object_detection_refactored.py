@@ -3,7 +3,9 @@ import time
 import serial
 import RPi.GPIO as GPIO
 
-
+# The ObjectDetectionWorker class starts the object detection service on a seperate thread, where it
+# measures distance using the two ultrasonic sensors (left and right) on the SEE glasses, and relays
+# that data to the STM32 microcontroller through serial connection.
 class ObjectDetectionWorker:
 
     ser = serial.Serial('/dev/ttyS0', 115200, timeout=1)
@@ -27,12 +29,15 @@ class ObjectDetectionWorker:
         self.object_detect_startup()
         threading.Thread(target=self.detect_objects).start()
         
+    # Used on service startup to reset GPIO output pins
     def object_detect_startup(self):
-        #reset GPIO output pins
         GPIO.output(self.GPIO_TRIGGER_L, False)
         GPIO.output(self.GPIO_TRIGGER_R, False)
         time.sleep(2)
-        
+    
+    # handles web app requests related to object detection. Receives requests that update the settings
+    # for object detection, such as changing the nearCutoff, midCutoff, farCutOff parameters, as well
+    # as enabling or disabling haptic feedback
     def handle_event(self, event):
         self.nearCutoff = event.nearCutoff
         self.midCutoff = event.midCutoff
@@ -42,7 +47,7 @@ class ObjectDetectionWorker:
         print(response)
         return response
              
-    # calculate distance for sensor given as parameter
+    # calculate distance detected by the sensor, where side = 0 represents left sensor, side = 1 is right
     def distance(self, side):
         if (side == 0):
             # set Trigger to HIGH
@@ -94,26 +99,14 @@ class ObjectDetectionWorker:
             distance = (TimeElapsed * 34300) / 2
         return distance
 
-    # method to be used in thread to detect objects
+    # Measures distance using the two sensors, and sends that data to the STM32 via serial connection
     def detect_objects(self):
         try:
             dist_L = self.distance(0)
-            # ~ print ("Measured Distance left  = %.1f cm" % dist_L)
             time.sleep(0.05)
             dist_R = self.distance(1)
-            # ~ print ("Measured Distance right = %.1f cm" % dist_R)
             time.sleep(0.05)
-            
-            # ~ # 20 is value we determined to define a 'centered' object
-            # ~ if dist_R-dist_L > 20:
-                # ~ #print("Object is to the left")
-                # ~ pass
-            # ~ elif dist_L-dist_R > 20:
-                # ~ #print("Object is to the right")
-                # ~ pass
-            # ~ else:
-                # ~ #print("Object is in the center")
-                # ~ pass
+
             if(self.isHapticOn):
                 self.program_sensor(dist_L, dist_R)
             else:
@@ -126,11 +119,11 @@ class ObjectDetectionWorker:
             print("Measurement stopped by User")
             GPIO.cleanup()
       
-    # Send inputs to microcontroller based on distance
+    # Send inputs to microcontroller based on distance, which are used to buzz the
+    # haptic feedback pads based on the values passed.
     def program_sensor(self, left, right):
         if (left > self.farCutoff):
             data = "00000000000" # Replace this with your sensor data
-            #print("program sending left " + str(left))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -138,7 +131,6 @@ class ObjectDetectionWorker:
             
         elif (self.midCutoff < left and left <= self.farCutoff):
             data = "33333333333" # Replace this with your sensor data
-            #print("program sending left" + str(left))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -146,7 +138,6 @@ class ObjectDetectionWorker:
             
         elif (self.nearCutoff < left and left <= self.midCutoff):
             data = "22222222222" # Replace this with your sensor data
-            #print("program sending left" + str(left))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -154,7 +145,6 @@ class ObjectDetectionWorker:
             
         elif (left <= self.nearCutoff):
             data = "11111111111" # Replace this with your sensor data
-            #print("program sending left" + str(left))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -162,7 +152,6 @@ class ObjectDetectionWorker:
             
         if (right > self.farCutoff):
             data = "44444444444" # Replace this with your sensor data
-            #print("program sending right " + str(right))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -170,7 +159,6 @@ class ObjectDetectionWorker:
             
         elif (self.midCutoff < right and right <= self.farCutoff):
             data = "77777777777" # Replace this with your sensor data
-            #print("program sending right" + str(right))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -178,7 +166,6 @@ class ObjectDetectionWorker:
             
         elif (self.nearCutoff < right and right <= self.midCutoff):
             data = "66666666666" # Replace this with your sensor data
-            #print("program sending right" + str(right))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
@@ -186,20 +173,16 @@ class ObjectDetectionWorker:
             
         elif (right <= self.nearCutoff):
             data = "55555555555" # Replace this with your sensor data
-            #print("program sending right" + str(right))
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.01)
             self.ser.write(data.encode('utf-8'))
             time.sleep(0.05)      
             
+    # sends "turn off" commands to microcontroller to turn off haptic feedback pads
+    # and stops object detection
     def stop_detection(self):
-        print("off")
         self.ser.write("00000000000".encode("utf-8"))
         time.sleep(0.01)
-        #self.ser.write("00000000000".encode("utf-8"))
-        #time.sleep(0.01)
-        #self.ser.write("44444444444".encode("utf-8"))
-        #time.sleep(0.01)
         self.ser.write("44444444444".encode("utf-8"))
         time.sleep(0.01)
         self.ser.flush()

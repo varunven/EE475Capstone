@@ -6,6 +6,7 @@
 #   smbus
 #   pypng
 #
+# The HuskyLens lib file exposes the HuskyLens API in order to carry out operations on the HuskyLens.
 # How to use :
 # 1) First import the library into your project and connect your HuskyLens
 # 2) Init huskylens

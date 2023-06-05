@@ -4,7 +4,9 @@ import time
 import json
 import asyncio
 
-
+# The WebAppHandler class uses socket communication to communicate with the web app. It listens
+# for see-requests coming from the web app, and sends back responses. These requests are relayed
+# to the different service workers.
 class WebAppHandler():
     
     socket = socketio.Client()
@@ -17,23 +19,21 @@ class WebAppHandler():
         self.socket.on('see-request', self.handle_see_request)
         threading.Thread(target=self.connect_to_server).start()
         
-        
+    # Connects the socket to the YOLO server. Attempts to reconnect every 5 seconds on disconnect.
+    # Defines different event handlers depending on the event received by the socket from the YOLO server.      
     def connect_to_server(self):
 
+        # service identifies itself as obj recognition service to YOLO server on connect
         @self.socket.event
         def connect():
             print('Web App Handler: connected to YOLO server')
             self.socket.emit("web-app-handler")
-                    
+         
+        # tells the user that the service has disconnected on disconnect            
         @self.socket.event
         def disconnect():
             print('Web App Handler: disconnected from YOLO server')
             
-
-        #@self.socket.on('see_request')
-        #def see_request(request):
-
-
         try:
             self.socket.connect(self.server_link)
             self.socket.wait()
@@ -42,6 +42,7 @@ class WebAppHandler():
             time.sleep(5)
             self.connect_to_server()
 
+    # receives a see-request from the web-app, parses it, and puts it in the jobs queue.
     def handle_see_request(self, request):
         print(f'obtained request = {request}')
         if(request['service_name'] == 'object-recognition-settings'):
@@ -66,24 +67,23 @@ class WebAppHandler():
         return 200
         #print(callback)
     
+    
     def handle_see_response(self, response):
         print("responding")
         print(response)
-        
+    
+    # sends a request to the webapp, with the payload = data. If a response takes longer than timeout
+    # then the request fails    
     def send_request(self, data, timeout):
-        print("trying to send request")
         response = None
         response_received = threading.Event()
         
         def callback(name, response_code):
-            print("received code = ", response_code)
-            print("received name = ", name)
             nonlocal response
             response = (name, response_code)
             response_received.set()
         
-        if (self.socket.connected):     
-            print("emitting")   
+        if (self.socket.connected):      
             self.socket.emit('learn-face', data,  callback=callback)
             response_received.wait(timeout=timeout)
             print("send_request returning = ", response)
@@ -92,14 +92,8 @@ class WebAppHandler():
             else:
                 return ("", 500)
     
-        
-# ~ class WebAppJob():
-    
-    # ~ def __init__(self, service_name, parameter_name, new_value):
-        # ~ self.service_name = service_name,
-        # ~ self.parameter_name = parameter_name,
-        # ~ self.new_value = new_value
-     
+ 
+# Represents a object recognition job or request
 class WebAppJobObjectRecognition():
     
     def __init__(self, settings):
@@ -109,6 +103,7 @@ class WebAppJobObjectRecognition():
         self.objsPriority = settings['objsPriority']
         self.audioPlaybackTime = settings['audioPlaybackTime']
 
+# Represents a object detection job or request
 class WebAppJobObjectDetection():
     
     def __init__(self, settings):
@@ -117,6 +112,7 @@ class WebAppJobObjectDetection():
         self.farCutoff = settings['farCutoff']
         self.isHapticOn = settings['isHapticOn']
 
+# Represents a change faces job or request
 class WebAppJobChangeFaces():
     
     def __init__(self, faceId, newFirstName, newLastName):
@@ -124,6 +120,7 @@ class WebAppJobChangeFaces():
         self.newFirstName = newFirstName
         self.newLastName = newLastName
 
+# Represents a forget faces job or request
 class WebAppJobForgetFaces():
     
     def __init__(self, toForget):
